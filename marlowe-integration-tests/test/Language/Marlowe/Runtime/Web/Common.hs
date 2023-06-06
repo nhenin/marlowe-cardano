@@ -1,5 +1,17 @@
 module Language.Marlowe.Runtime.Web.Common
-  where
+  ( applyCloseTransaction
+  , applyInputs
+  , choose
+  , createCloseContract
+  , deposit
+  , notify
+  , signShelleyTransaction'
+  , submitContract
+  , submitTransaction
+  , submitWithdrawal
+  , waitUntilConfirmed
+  , withdraw
+  ) where
 
 import Cardano.Api
   ( AsType(..)
@@ -18,7 +30,7 @@ import qualified Data.Text as T
 import qualified Language.Marlowe as V1
 import Language.Marlowe.Core.V1.Semantics.Types
   (ChoiceId(ChoiceId), Input(NormalInput), InputContent(IChoice, IDeposit, INotify))
-import Language.Marlowe.Runtime.Integration.Common
+import Language.Marlowe.Runtime.Integration.Common hiding (choose, deposit, notify, withdraw)
 import Language.Marlowe.Runtime.Transaction.Api (WalletAddresses(..))
 import qualified Language.Marlowe.Runtime.Web as Web
 import Language.Marlowe.Runtime.Web.Client
