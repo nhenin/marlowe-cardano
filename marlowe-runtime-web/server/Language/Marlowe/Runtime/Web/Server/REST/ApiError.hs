@@ -7,8 +7,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Language.Marlowe.Runtime.Web.Server.REST.ApiError
-  where
+module Language.Marlowe.Runtime.Web.Server.REST.ApiError where
 
 import Control.Monad.Except (MonadError(throwError))
 import Data.Aeson (Value(Null), encode, object, (.=))
@@ -95,6 +94,9 @@ badRequest' msg = badRequest msg Nothing
 
 notFound :: String -> Maybe String -> ServerError
 notFound msg errorCode = toServerError . ApiError msg (fromMaybe "NotFound" errorCode) Null $ 404
+
+notFoundWithErrorCode :: String -> String -> ServerError
+notFoundWithErrorCode msg = notFound msg . Just
 
 notFound' :: String -> ServerError
 notFound' msg = notFound msg Nothing
