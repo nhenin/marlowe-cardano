@@ -146,6 +146,16 @@ library
     Spec.Marlowe.Semantics.Merkle
     Spec.Marlowe.Semantics.Orphans
     Spec.Marlowe.Semantics.Util
+    Spec.Marlowe.Semantics.Next
+    Spec.Marlowe.Semantics.Next.Common.Tuple
+    Spec.Marlowe.Semantics.Next.Common.QuickCheck
+    Spec.Marlowe.Semantics.Next.Common.Isomorphism 
+    Spec.Marlowe.Semantics.Next.Contract
+    Spec.Marlowe.Semantics.Next.Contract.Generator
+    Spec.Marlowe.Semantics.Next.When
+    Spec.Marlowe.Semantics.Next.When.Choice
+    Spec.Marlowe.Semantics.Next.When.Deposit
+    Spec.Marlowe.Semantics.Next.When.Notify
     Spec.Marlowe.Serialization
     Spec.Marlowe.Serialization.CoreJson
     Spec.Marlowe.Serialization.ExtendedJson
@@ -183,6 +193,8 @@ library
     , tasty-quickcheck >= 0.10 && < 0.11
     , text >= 1.2.4 && < 2
     , these >= 1.1 && < 2
+    , ilist == 0.4.0.1 && < 0.5
+    , type-iso == 1.0.1.0 && < 1.1
   if flag(trace-plutus)
      cpp-options: -DTRACE_PLUTUS
 

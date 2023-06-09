@@ -87,6 +87,7 @@ library
     ilist ==0.4.0.1 && < 0.5 , 
     plutus-ledger-slot == 0.0.1 && < 0.2,
 
+
   exposed-modules:
     Language.Marlowe
     Language.Marlowe.Analysis.FSSemantics
