@@ -94,3 +94,6 @@ tests = testGroup "Next"
           ]
       ]
   ]
+
+-- Following Identical Evaluated Deposits are not applicable
+-- Following Choice having the same ChoiceId propose Bounds wi(Intersection of all the Bounds for a set of Choice having the same Choice Id is empty
