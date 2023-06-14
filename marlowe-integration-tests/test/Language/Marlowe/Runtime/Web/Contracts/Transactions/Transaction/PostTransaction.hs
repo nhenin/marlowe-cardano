@@ -1,5 +1,4 @@
-module Language.Marlowe.Runtime.Web.PutTransaction
-  where
+module Language.Marlowe.Runtime.Web.Contracts.Transactions.Transaction.PostTransaction where
 
 import Control.Monad.IO.Class (MonadIO(liftIO))
 import qualified Data.Map.Strict as Map
@@ -8,23 +7,21 @@ import Data.Time (getCurrentTime, secondsToNominalDiffTime)
 import Language.Marlowe.Core.V1.Semantics.Types (Input(NormalInput), InputContent(IDeposit))
 import Language.Marlowe.Extended.V1 (ada)
 import Language.Marlowe.Runtime.Integration.Common
-  (Wallet(Wallet, addresses, signingKeys), expectJust, getGenesisWallet, runIntegrationTest, runWebClient)
 import Language.Marlowe.Runtime.Integration.StandardContract (standardContract)
 import Language.Marlowe.Runtime.Plutus.V2.Api (toPlutusAddress)
 import Language.Marlowe.Runtime.Transaction.Api (WalletAddresses(..))
 import Language.Marlowe.Runtime.Web (RoleTokenConfig(RoleTokenSimple))
 import qualified Language.Marlowe.Runtime.Web as Web
-import Language.Marlowe.Runtime.Web.Client (postContract, postTransaction, putTransaction)
-import Language.Marlowe.Runtime.Web.Common (signShelleyTransaction', submitContract)
+import Language.Marlowe.Runtime.Web.Client (postContract, postTransaction)
+import Language.Marlowe.Runtime.Web.Common (submitContract)
 import Language.Marlowe.Runtime.Web.Server.DTO (ToDTO(toDTO))
 import Test.Hspec (Spec, describe, it)
 import Test.Integration.Marlowe.Local (withLocalMarloweRuntime)
 
-
 spec :: Spec
-spec = describe "PUT /contracts/{contractId}/transactions/{transaction}" do
+spec = describe "POST /contracts/{contractId}/transactions" do
   it "returns the transaction header" $ withLocalMarloweRuntime $ runIntegrationTest do
-    partyAWallet@Wallet{signingKeys} <- getGenesisWallet 0
+    partyAWallet <- getGenesisWallet 0
     partyBWallet <- getGenesisWallet 1
 
     result <- runWebClient do
@@ -58,7 +55,7 @@ spec = describe "PUT /contracts/{contractId}/transactions/{transaction}" do
 
       let inputs = [NormalInput $ IDeposit partyA partyA ada 100_000_000]
 
-      Web.ApplyInputsTxEnvelope{transactionId, txEnvelope} <- postTransaction
+      postTransaction
         partyAWebChangeAddress
         (Just partyAWebExtraAddresses)
         (Just partyAWebCollataralUtxos)
@@ -71,8 +68,6 @@ spec = describe "PUT /contracts/{contractId}/transactions/{transaction}" do
           , inputs
           , tags = mempty
           }
-      applyTx <- liftIO $ signShelleyTransaction' txEnvelope signingKeys
-      putTransaction contractId transactionId applyTx
     case result of
       Left _ ->  fail $ "Expected 200 response code - got " <> show result
-      Right () ->  pure ()
+      Right Web.ApplyInputsTxEnvelope{} ->  pure ()
