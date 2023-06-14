@@ -38,10 +38,13 @@ module Language.Marlowe.Core.V1.Semantics.Next
   , CanReduce(..)
   , CaseIndex(..)
   , Indexed(..)
+  , IndexedCanChooseList(..)
+  , IndexedCanDeposits(..)
   , IsMerkleizedContinuation(..)
   , Next(..)
+  , emptyApplicables
+  , getCaseIndex
   , next
-  , toCaseIndex
   ) where
 
 import Control.Applicative (Alternative((<|>)), Applicative((<*>)), (<$>))
@@ -49,11 +52,13 @@ import Data.Aeson (FromJSON(parseJSON), KeyValue((.=)), ToJSON(toJSON), Value(Ob
 import Data.Aeson.Types ()
 import Data.Bifunctor (Bifunctor(first))
 import Data.Coerce (coerce)
-import Data.Foldable (Foldable(fold))
+import Data.Foldable (Foldable(foldr))
 import Data.List.Index (indexed)
 import Data.Maybe (catMaybes)
-import Data.Monoid as Haskell (First(First, getFirst), Monoid(mempty), (<>))
+import Data.Monoid as Haskell (First(First), Monoid(mempty), (<>))
 
+import Data.Eq
+import Data.List (nubBy, (++))
 import Deriving.Aeson (Generic)
 import Language.Marlowe.Core.V1.Semantics
   ( ReduceResult(ContractQuiescent, RRAmbiguousTimeIntervalError)
@@ -107,17 +112,12 @@ data Indexed a
     deriving stock (Haskell.Show,Haskell.Eq,Haskell.Ord,Generic)
     deriving anyclass (Pretty)
 
-toCaseIndex :: Indexed a -> CaseIndex
-toCaseIndex (Indexed c _) = c
+getCaseIndex :: Indexed a -> CaseIndex
+getCaseIndex (Indexed c _) = c
 
-instance Haskell.Semigroup ApplicableGeneralizedInputs where
-  a <> b  = ApplicableGeneralizedInputs
-              (getFirst $ (coerce . canNotifyMaybe $ a) <> (coerce . canNotifyMaybe $ b)) -- First Monoid
-              (deposits a   <> deposits b) -- (++) monoid
-              (choices a    <> choices b ) -- (++) monoid
+getIndexedValue :: Indexed a -> a
+getIndexedValue (Indexed _ a) = a
 
-instance Haskell.Monoid ApplicableGeneralizedInputs where
-  mempty = ApplicableGeneralizedInputs Nothing [] []
 
 
 newtype IsMerkleizedContinuation = IsMerkleizedContinuation { unIsMerkleizedContinuation :: Haskell.Bool}
@@ -133,7 +133,7 @@ data CanDeposit = CanDeposit Party AccountId Token Integer IsMerkleizedContinuat
   deriving stock (Haskell.Show,Haskell.Eq,Haskell.Ord,Generic)
   deriving anyclass (Pretty)
 
-data CanChoose  = CanChoose ChoiceId [Bound] IsMerkleizedContinuation
+data CanChoose  = CanChoose ChoiceId [[Bound]] IsMerkleizedContinuation
   deriving stock (Haskell.Show,Haskell.Eq,Haskell.Ord,Generic)
   deriving anyclass (Pretty)
 
@@ -151,21 +151,56 @@ next environment state contract
         canReduce
         (applicables environment reducedState reducedContract)
 
+
+emptyApplicables :: ApplicableGeneralizedInputs
+emptyApplicables = ApplicableGeneralizedInputs Nothing mempty mempty
+
+
+instance Haskell.Semigroup ApplicableGeneralizedInputs where
+  a <> b  = ApplicableGeneralizedInputs
+              (coerce $ firstCanNotify a <> firstCanNotify b)
+              (coerce $ indexedCanDeposits a <> indexedCanDeposits b)
+              (coerce $ indexedCanChooseList a <> indexedCanChooseList b)
+
+    where firstCanNotify = First . canNotifyMaybe
+          indexedCanDeposits = IndexedCanDeposits . deposits
+          indexedCanChooseList = IndexedCanChooseList . choices
+
+
+newtype IndexedCanDeposits = IndexedCanDeposits [Indexed CanDeposit]
+      deriving newtype (Haskell.Show,Haskell.Eq,Haskell.Ord,Pretty)
+
+instance Haskell.Semigroup IndexedCanDeposits where
+  (IndexedCanDeposits a) <> (IndexedCanDeposits b)
+      = IndexedCanDeposits . removeFollowingIdentical a $ b
+    where removeFollowingIdentical depositsA depositsB
+            = nubBy (\a' b' -> getIndexedValue a' == getIndexedValue b')
+              $ depositsA ++ depositsB
+
+
+newtype IndexedCanChooseList = IndexedCanChooseList { unIndexedCanChooseList :: [Indexed CanChoose]}
+      deriving newtype (Haskell.Show,Haskell.Eq,Haskell.Ord,Pretty)
+
+
+instance Haskell.Semigroup IndexedCanChooseList where
+  a <> b = IndexedCanChooseList $ unIndexedCanChooseList a <>  unIndexedCanChooseList b
+
+
 -- | Describe for a given contract which inputs can be applied
 applicables :: Environment  -> State  ->  Contract -> ApplicableGeneralizedInputs
-applicables  _  _ Close = mempty
-applicables environment state (When xs _ _) = applicableGeneralizedInputs' environment state xs
-applicables _  _  _  = mempty
+applicables  _  _ Close = emptyApplicables
+applicables environment state (When xs _ _) = applicables' environment state xs
+applicables _  _  _  = emptyApplicables
 
-applicableGeneralizedInputs' :: Environment -> State -> [Case Contract] -> ApplicableGeneralizedInputs
-applicableGeneralizedInputs' environment state
-  = fold -- keep only the first Notify evaluated to True (via ApplicableGeneralizedInputs Monoid)
+applicables' :: Environment -> State -> [Case Contract] -> ApplicableGeneralizedInputs
+applicables' environment state
+  = foldr (<>) emptyApplicables
   . catMaybes
-  . (uncurry (applicableGeneralizedInputMaybe environment state)  <$>)
+  . (uncurry (applicableMaybe environment state)  <$>)
   . caseIndexed
 
-applicableGeneralizedInputMaybe :: Environment -> State -> CaseIndex -> Case Contract -> Maybe ApplicableGeneralizedInputs
-applicableGeneralizedInputMaybe environment state caseIndex
+applicableMaybe :: Environment -> State -> CaseIndex -> Case Contract -> Maybe ApplicableGeneralizedInputs
+applicableMaybe environment state caseIndex
   = \case
       (merkleizedContinuation,Deposit accountId party token value)
         -> Just
@@ -178,7 +213,7 @@ applicableGeneralizedInputMaybe environment state caseIndex
             $ ApplicableGeneralizedInputs
                 Nothing
                 []
-                [Indexed  caseIndex $ CanChoose choiceId bounds merkleizedContinuation]
+                [Indexed  caseIndex $ CanChoose choiceId [bounds] merkleizedContinuation]
       (merkleizedContinuation,Notify observation) | evalObservation environment state observation
         -> Just
             $ ApplicableGeneralizedInputs

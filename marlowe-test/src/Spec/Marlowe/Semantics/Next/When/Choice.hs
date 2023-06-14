@@ -14,9 +14,9 @@ data Choice' = Choice' ChoiceId [Bound] IsMerkleizedContinuation deriving (Show,
 
 
 instance Injective Choice' CanChoose where
-   to (Choice' a b c) = CanChoose a b c
+   to (Choice' a b c) = CanChoose a [b] c
 instance Injective CanChoose Choice'  where
-   to (CanChoose a b c) =  Choice' a b c
+   to (CanChoose a b c) =  Choice' a (head b) c
 
 onlyIndexedChoices :: Environment -> State -> Contract -> [Indexed Choice']
 onlyIndexedChoices e s = maybe

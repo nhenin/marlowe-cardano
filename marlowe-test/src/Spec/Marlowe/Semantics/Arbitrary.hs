@@ -1272,3 +1272,9 @@ instance Arbitrary (Indexed CanDeposit) where
 
 instance Arbitrary  (Indexed CanChoose) where
   arbitrary = Indexed <$> (CaseIndex <$> arbitrary ) <*> (CanChoose <$>  arbitrary <*> arbitrary <*> (IsMerkleizedContinuation <$> arbitrary ))
+
+instance Arbitrary  IndexedCanDeposits where
+  arbitrary = IndexedCanDeposits <$> arbitrary
+
+instance Arbitrary  IndexedCanChooseList where
+  arbitrary = IndexedCanChooseList <$> arbitrary

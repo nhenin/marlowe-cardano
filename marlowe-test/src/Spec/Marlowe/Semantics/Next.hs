@@ -8,14 +8,18 @@ module Spec.Marlowe.Semantics.Next
 
 
 import Data.Coerce (coerce)
+import Data.Data (Proxy(..))
 import Data.Maybe (fromJust)
 import Data.Types.Isomorphic (Injective(to))
 import Language.Marlowe.Core.V1.Semantics.Next
-  ( ApplicableGeneralizedInputs(canNotifyMaybe, choices, deposits)
+  ( ApplicableGeneralizedInputs(..)
   , CanReduce(CanReduce)
+  , IndexedCanChooseList
+  , IndexedCanDeposits
   , Next(applicableGeneralizedInputs, canReduce)
+  , emptyApplicables
+  , getCaseIndex
   , next
-  , toCaseIndex
   )
 import Spec.Marlowe.Semantics.Arbitrary ()
 import Spec.Marlowe.Semantics.Next.Common.Isomorphism ()
@@ -34,6 +38,7 @@ import Spec.Marlowe.Semantics.Next.When.Deposit (evaluateDeposits)
 import Spec.Marlowe.Semantics.Next.When.Notify (firstNotifyTrueIndex)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
+import Test.Tasty.QuickCheck.Laws (testSemigroupLaws)
 
 
 tests :: TestTree
@@ -58,18 +63,13 @@ tests = testGroup "Next"
             $ forAll' anyOnlyFalsifiedNotifies $ \(environment', state, contract) ->
                 Right Nothing == (canNotifyMaybe . applicableGeneralizedInputs <$> next environment' state contract)
       , testProperty
-          "Only the first Notify evaluated to True is applicable"
-            $ forAll' anyWithAtLeastOneNotifyTrue $ \(environment', state, contract) -> do
-                let expectedCaseIndex = fromJust . firstNotifyTrueIndex environment' state $ contract
-                (Right . Just $ expectedCaseIndex ) == ( (toCaseIndex <$>). canNotifyMaybe . applicableGeneralizedInputs <$> next environment' state contract)
-      , testProperty
           "Non timed out empty \"When\" is not applicable"
             $ forAll' anyEmptyWhenNonTimedOut $ \(environment', state, contract) ->
-                Right mempty == ( applicableGeneralizedInputs <$> next environment' state contract)
+                Right emptyApplicables == ( applicableGeneralizedInputs <$> next environment' state contract)
       , testProperty
           "\"Close\" is not applicable"
             $ forAll' anyCloseOrReducedToAClose $ \(environment', state, contract) ->
-                Right mempty == (applicableGeneralizedInputs <$> next environment' state contract)
+                Right emptyApplicables == (applicableGeneralizedInputs <$> next environment' state contract)
       , testProperty
           "\"CanDeposit\" is a \"Deposit\" with its quantity evaluated and \"Case\" indexes are preserved"
             $ forAll' anyWithValidEnvironement $ \(environment', state, contract) -> do
@@ -80,5 +80,17 @@ tests = testGroup "Next"
             $ forAll' anyWithValidEnvironement $ \(environment', state, contract) -> do
                 let indexedChoices = onlyIndexedChoices environment' state contract
                 Right indexedChoices == ( to . choices . applicableGeneralizedInputs <$> next environment' state contract)
+      , testGroup "Input Shadowing"
+          [ testProperty
+              "Only the first Notify evaluated to True is applicable"
+                $ forAll' anyWithAtLeastOneNotifyTrue $ \(environment', state, contract) -> do
+                    let expectedCaseIndex = fromJust . firstNotifyTrueIndex environment' state $ contract
+                    (Right . Just $ expectedCaseIndex ) == ( (getCaseIndex <$>). canNotifyMaybe . applicableGeneralizedInputs <$> next environment' state contract)
+          ]
+      , testGroup "Laws"
+          [ testSemigroupLaws (Proxy :: Proxy ApplicableGeneralizedInputs)
+          , testSemigroupLaws (Proxy :: Proxy IndexedCanDeposits)
+          , testSemigroupLaws (Proxy :: Proxy IndexedCanChooseList)
+          ]
       ]
   ]
