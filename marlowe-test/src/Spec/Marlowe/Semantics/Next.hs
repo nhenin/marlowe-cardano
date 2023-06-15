@@ -6,26 +6,27 @@ module Spec.Marlowe.Semantics.Next
     tests
   ) where
 
-
 import Data.Coerce (coerce)
-import Data.Data (Proxy(..))
+import Data.List (nubBy)
 import Data.Maybe (fromJust)
 import Data.Types.Isomorphic (Injective(to))
+import Debug.Trace
 import Language.Marlowe.Core.V1.Semantics.Next
   ( ApplicableGeneralizedInputs(..)
   , CanReduce(CanReduce)
-  , IndexedCanChooseList
-  , IndexedCanDeposits
   , Next(applicableGeneralizedInputs, canReduce)
+  , applicablesWhen
   , emptyApplicables
-  , getCaseIndex
   , next
   )
+import Language.Marlowe.Core.V1.Semantics.Next.Indexed
 import Spec.Marlowe.Semantics.Arbitrary ()
 import Spec.Marlowe.Semantics.Next.Common.Isomorphism ()
 import Spec.Marlowe.Semantics.Next.Common.QuickCheck (forAll')
 import Spec.Marlowe.Semantics.Next.Contract.Generator
-  ( anyCloseOrReducedToAClose
+  ( anyCaseContractsWithIdenticalEvaluatedDeposits
+  , anyCaseContractsWithoutIdenticalEvaluatedDeposits
+  , anyCloseOrReducedToAClose
   , anyEmptyWhenNonTimedOut
   , anyIrreducibleContract
   , anyOnlyFalsifiedNotifies
@@ -38,7 +39,6 @@ import Spec.Marlowe.Semantics.Next.When.Deposit (evaluateDeposits)
 import Spec.Marlowe.Semantics.Next.When.Notify (firstNotifyTrueIndex)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
-import Test.Tasty.QuickCheck.Laws (testSemigroupLaws)
 
 
 tests :: TestTree
@@ -71,29 +71,43 @@ tests = testGroup "Next"
             $ forAll' anyCloseOrReducedToAClose $ \(environment', state, contract) ->
                 Right emptyApplicables == (applicableGeneralizedInputs <$> next environment' state contract)
       , testProperty
-          "\"CanDeposit\" is a \"Deposit\" with its quantity evaluated and \"Case\" indexes are preserved"
-            $ forAll' anyWithValidEnvironement $ \(environment', state, contract) -> do
-                let evaluatedDeposits = evaluateDeposits environment' state contract
-                Right evaluatedDeposits == ( to . deposits . applicableGeneralizedInputs <$> next environment' state contract)
+          "\"CanDeposit\" is a \"Deposit\" with its quantity evaluated and its \"Case\" index preserved (when no shadowing involved)"
+            $ forAll' anyCaseContractsWithoutIdenticalEvaluatedDeposits $ \(environment', state, caseContracts) -> do
+                let evaluatedDeposits = evaluateDeposits environment' state caseContracts
+                    canDeposits = deposits. applicablesWhen environment' state $ caseContracts
+                evaluatedDeposits == to canDeposits
       , testProperty
-          "\"CanChoose\" is isomorphic to \"Choice\" and \"Case\" indexes are preserved"
+          "\"CanChoose\" is a subset of \"Choice\" and its \"Case\" index preserved (when no shadowing involved)"
             $ forAll' anyWithValidEnvironement $ \(environment', state, contract) -> do
                 let indexedChoices = onlyIndexedChoices environment' state contract
                 Right indexedChoices == ( to . choices . applicableGeneralizedInputs <$> next environment' state contract)
+
       , testGroup "Input Shadowing"
           [ testProperty
-              "Only the first Notify evaluated to True is applicable"
+              "Following Notifies evaluated to True are not applicable (shadowed)"
                 $ forAll' anyWithAtLeastOneNotifyTrue $ \(environment', state, contract) -> do
                     let expectedCaseIndex = fromJust . firstNotifyTrueIndex environment' state $ contract
                     (Right . Just $ expectedCaseIndex ) == ( (getCaseIndex <$>). canNotifyMaybe . applicableGeneralizedInputs <$> next environment' state contract)
-          ]
-      , testGroup "Laws"
-          [ testSemigroupLaws (Proxy :: Proxy ApplicableGeneralizedInputs)
-          , testSemigroupLaws (Proxy :: Proxy IndexedCanDeposits)
-          , testSemigroupLaws (Proxy :: Proxy IndexedCanChooseList)
+          , testProperty
+              "Following Identical Evaluated Deposits are not applicable (shadowed)"
+                $ forAll' anyCaseContractsWithIdenticalEvaluatedDeposits $ \(environment', state, caseContracts) -> do
+                    let evaluatedDeposits = evaluateDeposits environment' state caseContracts
+                        canDeposits = to. deposits. applicablesWhen environment' state $ caseContracts
+                    canDeposits == nubBy sameIndexedValue evaluatedDeposits
+          , testProperty
+              "Following Overlapping Choice Bounds for an Identical Choice Id are not applicable (shadowed)"
+                $ forAll' anyWithValidEnvironement $ \(environment', state, contract) -> do
+                    let indexedChoices = onlyIndexedChoices environment' state contract
+                         -- CanChoose Don't overlaps for a same choiceId
+                         -- Bounds are preserves
+                         -- CanChoose with empties Bound are not applicable
+                         -- Following vs Preceding : Unit Tested?
+                    traceShow
+                      indexedChoices
+                      (traceShow (choices . applicableGeneralizedInputs <$> next environment' state contract)
+                        (Right indexedChoices == ( to . choices . applicableGeneralizedInputs <$> next environment' state contract)))
           ]
       ]
   ]
 
--- Following Identical Evaluated Deposits are not applicable
--- Following Choice having the same ChoiceId propose Bounds wi(Intersection of all the Bounds for a set of Choice having the same Choice Id is empty
+

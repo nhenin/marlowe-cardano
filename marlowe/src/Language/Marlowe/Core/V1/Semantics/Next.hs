@@ -11,7 +11,7 @@
 -----------------------------------------------------------------------------
 
 
-{-# LANGUAGE BlockArguments #-}
+
 {-# LANGUAGE DataKinds #-}
 
 {-# LANGUAGE DeriveGeneric #-}
@@ -36,29 +36,23 @@ module Language.Marlowe.Core.V1.Semantics.Next
   , CanDeposit(..)
   , CanNotify(..)
   , CanReduce(..)
-  , CaseIndex(..)
-  , Indexed(..)
-  , IndexedCanChooseList(..)
-  , IndexedCanDeposits(..)
-  , IsMerkleizedContinuation(..)
   , Next(..)
+  , applicables
+  , applicablesWhen
   , emptyApplicables
-  , getCaseIndex
   , next
+  , sameIndexedValue
   ) where
 
-import Control.Applicative (Alternative((<|>)), Applicative((<*>)), (<$>))
+import Control.Applicative (Alternative((<|>)))
 import Data.Aeson (FromJSON(parseJSON), KeyValue((.=)), ToJSON(toJSON), Value(Object), object, (.:))
 import Data.Aeson.Types ()
 import Data.Bifunctor (Bifunctor(first))
 import Data.Coerce (coerce)
-import Data.Foldable (Foldable(foldr))
 import Data.List.Index (indexed)
-import Data.Maybe (catMaybes)
-import Data.Monoid as Haskell (First(First), Monoid(mempty), (<>))
+import Data.Monoid as Haskell (First(First))
 
-import Data.Eq
-import Data.List (nubBy, (++))
+import Data.List (nubBy)
 import Deriving.Aeson (Generic)
 import Language.Marlowe.Core.V1.Semantics
   ( ReduceResult(ContractQuiescent, RRAmbiguousTimeIntervalError)
@@ -67,78 +61,50 @@ import Language.Marlowe.Core.V1.Semantics
   , reduceContractUntilQuiescent
   )
 import Language.Marlowe.Core.V1.Semantics.Types
-  ( AccountId
-  , Action(Choice, Deposit, Notify)
-  , Bound
-  , Case(..)
-  , ChoiceId
-  , Contract(Close, When)
-  , Environment
-  , Party
-  , State
-  , Token
-  )
+  (AccountId, Action(Choice, Deposit, Notify), Case(..), Contract(Close, When), Environment, Party, State, Token)
 import Language.Marlowe.Pretty (Pretty(..))
-import PlutusTx.Prelude (Either(..), Integer, Maybe(..), uncurry, ($), (.))
-import qualified Prelude as Haskell
+
+
+import Data.Maybe
+import Language.Marlowe.Core.V1.Semantics.Next.CanChoose
+import Language.Marlowe.Core.V1.Semantics.Next.Indexed
+import Language.Marlowe.Core.V1.Semantics.Next.IsMerkleizedContinuation
+import Prelude
+
+
 
 data Next
   = Next
       { canReduce :: CanReduce
       , applicableGeneralizedInputs :: ApplicableGeneralizedInputs}
-    deriving stock (Haskell.Show,Haskell.Eq,Haskell.Ord,Generic)
+    deriving stock (Show,Eq,Ord,Generic)
     deriving anyclass (Pretty)
 
 data AmbiguousIntervalProvided = AmbiguousIntervalProvided
-    deriving stock (Haskell.Show,Haskell.Eq,Haskell.Ord,Generic)
+    deriving stock (Show,Eq,Ord,Generic)
     deriving anyclass (Pretty)
 
--- | Index of an applicable input matching its derived action index in a When [Case Action]
-newtype CaseIndex = CaseIndex {unIndex ::Integer}
-    deriving stock (Haskell.Show,Haskell.Eq,Haskell.Ord,Generic)
-    deriving anyclass (Pretty)
-    deriving newtype (FromJSON,ToJSON)
+
 
 data ApplicableGeneralizedInputs
     = ApplicableGeneralizedInputs
      { canNotifyMaybe :: Maybe (Indexed CanNotify)
      , deposits       :: [Indexed CanDeposit]
      , choices        :: [Indexed CanChoose]}
-  deriving stock (Haskell.Show,Haskell.Eq,Haskell.Ord,Generic)
+  deriving stock (Show,Eq,Ord,Generic)
   deriving anyclass (Pretty)
 
-data Indexed a
-  = Indexed CaseIndex a
-    deriving stock (Haskell.Show,Haskell.Eq,Haskell.Ord,Generic)
-    deriving anyclass (Pretty)
-
-getCaseIndex :: Indexed a -> CaseIndex
-getCaseIndex (Indexed c _) = c
-
-getIndexedValue :: Indexed a -> a
-getIndexedValue (Indexed _ a) = a
-
-
-
-newtype IsMerkleizedContinuation = IsMerkleizedContinuation { unIsMerkleizedContinuation :: Haskell.Bool}
-    deriving stock (Haskell.Show,Haskell.Eq,Haskell.Ord,Generic)
-    deriving anyclass (Pretty)
-    deriving newtype (FromJSON,ToJSON)
 
 newtype CanNotify = CanNotify IsMerkleizedContinuation
-  deriving stock (Haskell.Show,Haskell.Eq,Haskell.Ord,Generic)
+  deriving stock (Show,Eq,Ord,Generic)
   deriving anyclass (Pretty)
 
 data CanDeposit = CanDeposit Party AccountId Token Integer IsMerkleizedContinuation
-  deriving stock (Haskell.Show,Haskell.Eq,Haskell.Ord,Generic)
+  deriving stock (Show,Eq,Ord,Generic)
   deriving anyclass (Pretty)
 
-data CanChoose  = CanChoose ChoiceId [[Bound]] IsMerkleizedContinuation
-  deriving stock (Haskell.Show,Haskell.Eq,Haskell.Ord,Generic)
-  deriving anyclass (Pretty)
-
-newtype CanReduce = CanReduce { unCanReduce :: Haskell.Bool}
-    deriving stock (Haskell.Show,Haskell.Eq,Haskell.Ord,Generic)
+newtype CanReduce = CanReduce { unCanReduce :: Bool}
+    deriving stock (Show,Eq,Ord,Generic)
     deriving newtype (FromJSON,ToJSON,Pretty)
 
 -- | Describe for a given contract which inputs can be applied it can be reduced or not
@@ -155,84 +121,76 @@ next environment state contract
 emptyApplicables :: ApplicableGeneralizedInputs
 emptyApplicables = ApplicableGeneralizedInputs Nothing mempty mempty
 
-
-instance Haskell.Semigroup ApplicableGeneralizedInputs where
-  a <> b  = ApplicableGeneralizedInputs
-              (coerce $ firstCanNotify a <> firstCanNotify b)
-              (coerce $ indexedCanDeposits a <> indexedCanDeposits b)
-              (coerce $ indexedCanChooseList a <> indexedCanChooseList b)
-
-    where firstCanNotify = First . canNotifyMaybe
-          indexedCanDeposits = IndexedCanDeposits . deposits
-          indexedCanChooseList = IndexedCanChooseList . choices
-
-
-newtype IndexedCanDeposits = IndexedCanDeposits [Indexed CanDeposit]
-      deriving newtype (Haskell.Show,Haskell.Eq,Haskell.Ord,Pretty)
-
-instance Haskell.Semigroup IndexedCanDeposits where
-  (IndexedCanDeposits a) <> (IndexedCanDeposits b)
-      = IndexedCanDeposits . removeFollowingIdentical a $ b
-    where removeFollowingIdentical depositsA depositsB
-            = nubBy (\a' b' -> getIndexedValue a' == getIndexedValue b')
-              $ depositsA ++ depositsB
-
-
-newtype IndexedCanChooseList = IndexedCanChooseList { unIndexedCanChooseList :: [Indexed CanChoose]}
-      deriving newtype (Haskell.Show,Haskell.Eq,Haskell.Ord,Pretty)
-
-
-instance Haskell.Semigroup IndexedCanChooseList where
-  a <> b = IndexedCanChooseList $ unIndexedCanChooseList a <>  unIndexedCanChooseList b
-
-
 -- | Describe for a given contract which inputs can be applied
 applicables :: Environment  -> State  ->  Contract -> ApplicableGeneralizedInputs
 applicables  _  _ Close = emptyApplicables
-applicables environment state (When xs _ _) = applicables' environment state xs
+applicables environment state (When xs _ _) = applicablesWhen environment state xs
 applicables _  _  _  = emptyApplicables
 
-applicables' :: Environment -> State -> [Case Contract] -> ApplicableGeneralizedInputs
-applicables' environment state
-  = foldr (<>) emptyApplicables
-  . catMaybes
-  . (uncurry (applicableMaybe environment state)  <$>)
+applicablesWhen :: Environment -> State -> [Case Contract] -> ApplicableGeneralizedInputs
+applicablesWhen environment state
+  = foldr mergeApplicables emptyApplicables
+  . (uncurry (toApplicable environment state)  <$>)
   . caseIndexed
 
-applicableMaybe :: Environment -> State -> CaseIndex -> Case Contract -> Maybe ApplicableGeneralizedInputs
-applicableMaybe environment state caseIndex
+mergeApplicables
+  :: ( Maybe (Indexed CanNotify)
+     , Maybe (Indexed CanDeposit)
+     , Maybe (Indexed CanChoose))
+  -> ApplicableGeneralizedInputs
+  -> ApplicableGeneralizedInputs
+mergeApplicables ( a@Just{}, _, _) b
+  = ApplicableGeneralizedInputs
+      (coerce $ First a <> (First . canNotifyMaybe $ b) )
+      (deposits b)
+      (choices b)
+mergeApplicables ( _, Just a, _) b
+  = ApplicableGeneralizedInputs
+      (canNotifyMaybe b)
+      (nubBy sameIndexedValue $ a : deposits b )
+      (choices b)
+mergeApplicables ( _, _, Just a) b
+  = ApplicableGeneralizedInputs
+      (canNotifyMaybe b)
+      (deposits b)
+      ((maybeToList $ a `difference` choices b) <> choices b)
+mergeApplicables _ b = b
+
+toApplicable
+  :: Environment
+  -> State
+  -> CaseIndex
+  -> Case Contract
+  ->  ( Maybe (Indexed CanNotify)
+      , Maybe (Indexed CanDeposit)
+      , Maybe (Indexed CanChoose))
+toApplicable environment state caseIndex
   = \case
       (merkleizedContinuation,Deposit accountId party token value)
-        -> Just
-            $ ApplicableGeneralizedInputs
-                Nothing
-                [Indexed caseIndex $ CanDeposit accountId party token (evalValue environment state value ) merkleizedContinuation]
-                []
+        -> ( Nothing
+           , Just (Indexed caseIndex $ CanDeposit accountId party token (evalValue environment state value ) merkleizedContinuation)
+           , Nothing )
       (merkleizedContinuation,Choice choiceId bounds)
-        -> Just
-            $ ApplicableGeneralizedInputs
-                Nothing
-                []
-                [Indexed  caseIndex $ CanChoose choiceId [bounds] merkleizedContinuation]
+        -> ( Nothing
+           , Nothing
+           , Just $ Indexed  caseIndex $ CanChoose choiceId bounds merkleizedContinuation)
       (merkleizedContinuation,Notify observation) | evalObservation environment state observation
-        -> Just
-            $ ApplicableGeneralizedInputs
-                (Just . Indexed  caseIndex $ CanNotify merkleizedContinuation)
-                []
-                []
-      (_,Notify _) -> Nothing
+        -> ( Just . Indexed  caseIndex $ CanNotify merkleizedContinuation
+           , Nothing
+           , Nothing)
+      (_,Notify _) -> (Nothing,Nothing, Nothing)
   . \case
-      (Case action _)           -> (IsMerkleizedContinuation Haskell.False,action)
-      (MerkleizedCase action _) -> (IsMerkleizedContinuation Haskell.True,action)
+      (Case action _)           -> (IsMerkleizedContinuation False,action)
+      (MerkleizedCase action _) -> (IsMerkleizedContinuation True,action)
 
 
 caseIndexed :: [a] -> [(CaseIndex,a)]
-caseIndexed xs = first (CaseIndex . Haskell.fromIntegral) <$> indexed  xs
+caseIndexed xs = first (CaseIndex . fromIntegral) <$> indexed  xs
 
 reduceContract :: Environment -> State -> Contract -> Either AmbiguousIntervalProvided (CanReduce,State,Contract)
 reduceContract environment state
   = (\case
-      ContractQuiescent _ _ _ newState Close -> Right (CanReduce Haskell.True ,newState,Close)  -- Todo : Add an extra notion of Terminate (N.H)
+      ContractQuiescent _ _ _ newState Close -> Right (CanReduce True ,newState,Close)  -- Todo : Add an extra notion of Terminate (N.H)
       ContractQuiescent isReduced _ _ newState newContract -> Right (CanReduce isReduced ,newState,newContract)
       RRAmbiguousTimeIntervalError -> Left AmbiguousIntervalProvided)
     . reduceContractUntilQuiescent environment state
@@ -243,7 +201,7 @@ instance FromJSON Next where
     = Next
         <$> v .: "can_reduce"
         <*> v .: "applicable_generalized_inputs"
-  parseJSON _ = Haskell.fail "Next must be an object with 2 fields \"can_reduce\" and \"applicable_generalized_inputs\""
+  parseJSON _ = fail "Next must be an object with 2 fields \"can_reduce\" and \"applicable_generalized_inputs\""
 
 instance ToJSON Next where
   toJSON Next {..}
@@ -259,7 +217,7 @@ instance FromJSON ApplicableGeneralizedInputs where
           <*> v .: "choices"
     <|> ApplicableGeneralizedInputs Nothing <$> (v .: "deposits")
           <*> v .: "choices"
-  parseJSON _ = Haskell.fail "NextGeneralizedInput must be either an object "
+  parseJSON _ = fail "NextGeneralizedInput must be either an object "
 
 instance ToJSON ApplicableGeneralizedInputs where
   toJSON ApplicableGeneralizedInputs {canNotifyMaybe = Nothing,..} = object
@@ -276,7 +234,7 @@ instance ToJSON ApplicableGeneralizedInputs where
 instance FromJSON (Indexed CanNotify) where
   parseJSON (Object v) =  Indexed <$> (CaseIndex <$> v .: "case_index")
                                   <*> (CanNotify <$> v .: "is_merkleized_continuation")
-  parseJSON _ = Haskell.fail "CanDeposit must be an object with 1 field \"is_merkleized_continuation\""
+  parseJSON _ = fail "CanDeposit must be an object with 1 field \"is_merkleized_continuation\""
 
 instance ToJSON (Indexed CanNotify) where
   toJSON (Indexed caseindex (CanNotify isMerkleizedContinuation)) = object
@@ -293,7 +251,7 @@ instance FromJSON (Indexed CanDeposit) where
                 <*> v .: "of_token"
                 <*> v .: "can_deposit"
                 <*> v .: "is_merkleized_continuation")
-  parseJSON _ = Haskell.fail "CanDeposit must be either an object"
+  parseJSON _ = fail "CanDeposit must be either an object"
 
 instance ToJSON (Indexed CanDeposit) where
   toJSON (Indexed caseIndex (CanDeposit party accountId token quantity isMerkleizedContinuation)) = object
@@ -305,21 +263,5 @@ instance ToJSON (Indexed CanDeposit) where
       , "is_merkleized_continuation" .= isMerkleizedContinuation
       ]
 
-instance FromJSON (Indexed CanChoose) where
-  parseJSON (Object v)
-    =  Indexed
-         <$>  (CaseIndex <$> v .: "case_index")
-         <*>  (CanChoose
-                <$>  v .: "for_choice"
-                <*>  v .: "can_choose_between"
-                <*>  v .: "is_merkleized_continuation")
-  parseJSON _ = Haskell.fail "CanChoose must be an object CanChoose "
 
-instance ToJSON (Indexed CanChoose) where
-  toJSON (Indexed caseIndex (CanChoose choiceId bounds isMerkleizedContinuation)) = object
-      [ "for_choice" .= choiceId
-      , "can_choose_between" .= bounds
-      , "case_index" .= caseIndex
-      , "is_merkleized_continuation" .= isMerkleizedContinuation
-      ]
 

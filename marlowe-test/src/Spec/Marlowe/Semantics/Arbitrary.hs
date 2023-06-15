@@ -128,6 +128,8 @@ import Data.Functor ((<&>))
 
 import Language.Marlowe.Core.V1.Semantics.Next hiding (choices)
 
+import Language.Marlowe.Core.V1.Semantics.Next.Indexed
+import Language.Marlowe.Core.V1.Semantics.Next.IsMerkleizedContinuation
 import qualified Plutus.V2.Ledger.Api as Ledger (Address(..))
 import qualified PlutusTx.AssocMap as AM (Map, delete, empty, fromList, keys, toList)
 import qualified PlutusTx.Eq as P (Eq)
@@ -1273,8 +1275,5 @@ instance Arbitrary (Indexed CanDeposit) where
 instance Arbitrary  (Indexed CanChoose) where
   arbitrary = Indexed <$> (CaseIndex <$> arbitrary ) <*> (CanChoose <$>  arbitrary <*> arbitrary <*> (IsMerkleizedContinuation <$> arbitrary ))
 
-instance Arbitrary  IndexedCanDeposits where
-  arbitrary = IndexedCanDeposits <$> arbitrary
 
-instance Arbitrary  IndexedCanChooseList where
-  arbitrary = IndexedCanChooseList <$> arbitrary
+

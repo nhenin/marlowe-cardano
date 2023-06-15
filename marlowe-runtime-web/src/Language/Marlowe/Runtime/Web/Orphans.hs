@@ -11,6 +11,8 @@ import Data.Proxy (Proxy(Proxy))
 import Data.Text (Text)
 import GHC.Exts (IsList(fromList))
 import Language.Marlowe.Core.V1.Semantics.Next
+import Language.Marlowe.Core.V1.Semantics.Next.Indexed
+import Language.Marlowe.Core.V1.Semantics.Next.IsMerkleizedContinuation
 import Language.Marlowe.Core.V1.Semantics.Types
 
 data Address

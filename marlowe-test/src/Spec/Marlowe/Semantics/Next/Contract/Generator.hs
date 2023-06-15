@@ -4,7 +4,9 @@
 
 
 module Spec.Marlowe.Semantics.Next.Contract.Generator
-  ( anyCloseOrReducedToAClose
+  ( anyCaseContractsWithIdenticalEvaluatedDeposits
+  , anyCaseContractsWithoutIdenticalEvaluatedDeposits
+  , anyCloseOrReducedToAClose
   , anyEmptyWhenNonTimedOut
   , anyIrreducibleContract
   , anyOnlyFalsifiedNotifies
@@ -14,13 +16,14 @@ module Spec.Marlowe.Semantics.Next.Contract.Generator
   ) where
 
 
-import Language.Marlowe (Contract, Environment, State)
+import Language.Marlowe (Case, Contract, Environment, State)
 import Spec.Marlowe.Semantics.Arbitrary ()
 import Test.QuickCheck (Arbitrary(arbitrary), Gen, suchThat)
 
 import Spec.Marlowe.Semantics.Next.Common.Tuple (uncurry3)
 import Spec.Marlowe.Semantics.Next.Contract
   (hasValidEnvironement, isEmptyWhenNonTimedOut, isIrreducible, isNotClose, isReducible, isReducibleToClose)
+import Spec.Marlowe.Semantics.Next.When.Deposit
 import Spec.Marlowe.Semantics.Next.When.Notify (areOnlyFalsifiedNotifies, atLeastOneNotifyTrue)
 
 anyReducibleContract :: Gen (Environment,State,Contract)
@@ -50,6 +53,14 @@ anyCloseOrReducedToAClose
 anyWithValidEnvironement :: Gen (Environment,State,Contract)
 anyWithValidEnvironement
   = anyContract `suchThat` uncurry3 hasValidEnvironement
+
+anyCaseContractsWithoutIdenticalEvaluatedDeposits :: Gen (Environment,State,[Case Contract])
+anyCaseContractsWithoutIdenticalEvaluatedDeposits
+  = arbitrary `suchThat`  uncurry3 hasNoIdenticalEvaluatedDeposits
+
+anyCaseContractsWithIdenticalEvaluatedDeposits :: Gen (Environment,State,[Case Contract])
+anyCaseContractsWithIdenticalEvaluatedDeposits
+  = arbitrary `suchThat` uncurry3 hasIdenticalEvaluatedDeposits
 
 anyContract :: Gen (Environment,State,Contract)
 anyContract

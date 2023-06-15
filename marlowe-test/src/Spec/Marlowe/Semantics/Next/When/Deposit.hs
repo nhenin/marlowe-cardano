@@ -1,18 +1,24 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 
-
 module Spec.Marlowe.Semantics.Next.When.Deposit
   ( EvaluatedDeposit(..)
   , evaluateDeposits
+  , hasIdenticalEvaluatedDeposits
+  , hasNoIdenticalEvaluatedDeposits
   ) where
 
+import Data.List (nubBy)
 import Data.Types.Isomorphic (Injective(..), Iso)
 import Language.Marlowe.Core.V1.Semantics (evalValue)
-import Language.Marlowe.Core.V1.Semantics.Next (CanDeposit(..), Indexed(..), IsMerkleizedContinuation)
-import Language.Marlowe.Core.V1.Semantics.Types (AccountId, Action(Deposit), Contract, Environment, Party, State, Token)
+import Language.Marlowe.Core.V1.Semantics.Next (CanDeposit(..))
+import Language.Marlowe.Core.V1.Semantics.Next.Indexed
+import Language.Marlowe.Core.V1.Semantics.Next.IsMerkleizedContinuation
+import Language.Marlowe.Core.V1.Semantics.Types
+  (AccountId, Action(Deposit), Case, Contract, Environment, Party, State, Token)
 import Spec.Marlowe.Semantics.Arbitrary ()
-import Spec.Marlowe.Semantics.Next.When (When'(indexedActions), reducibleToAWhen)
+import Spec.Marlowe.Semantics.Next.When (indexedCaseActions)
+
 
 
 data EvaluatedDeposit = EvaluatedDeposit Party AccountId Token Integer IsMerkleizedContinuation deriving (Show,Eq,Ord)
@@ -24,12 +30,17 @@ instance Injective CanDeposit EvaluatedDeposit  where
 
 instance Iso EvaluatedDeposit CanDeposit
 
+hasIdenticalEvaluatedDeposits :: Environment -> State -> [Case Contract] -> Bool
+hasIdenticalEvaluatedDeposits e s = not. hasNoIdenticalEvaluatedDeposits e s
 
-evaluateDeposits :: Environment -> State -> Contract -> [Indexed EvaluatedDeposit]
-evaluateDeposits e s = maybe
-      []
-      (uncurry (evaluateDepositsQuantities e) . fmap indexedActions)
-    . reducibleToAWhen e s
+hasNoIdenticalEvaluatedDeposits :: Environment -> State -> [Case Contract] -> Bool
+hasNoIdenticalEvaluatedDeposits e s c =
+    let xs = evaluateDeposits e s c
+    in nubBy(\ (Indexed _ a) (Indexed _ b) -> a == b) xs == xs
+
+evaluateDeposits :: Environment -> State -> [Case Contract] -> [Indexed EvaluatedDeposit]
+evaluateDeposits e s = evaluateDepositsQuantities e s . indexedCaseActions
+
 
 evaluateDepositsQuantities :: Environment -> State -> [Indexed (IsMerkleizedContinuation,Action)] -> [Indexed EvaluatedDeposit]
 evaluateDepositsQuantities _  _ [] = []
