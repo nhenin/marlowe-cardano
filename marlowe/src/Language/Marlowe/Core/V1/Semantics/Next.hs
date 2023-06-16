@@ -129,32 +129,32 @@ applicables _  _  _  = emptyApplicables
 
 applicablesWhen :: Environment -> State -> [Case Contract] -> ApplicableGeneralizedInputs
 applicablesWhen environment state
-  = foldr mergeApplicables emptyApplicables
+  = foldl mergeApplicables emptyApplicables
   . (uncurry (toApplicable environment state)  <$>)
   . caseIndexed
 
 mergeApplicables
-  :: ( Maybe (Indexed CanNotify)
+  :: ApplicableGeneralizedInputs
+  -> ( Maybe (Indexed CanNotify)
      , Maybe (Indexed CanDeposit)
      , Maybe (Indexed CanChoose))
   -> ApplicableGeneralizedInputs
-  -> ApplicableGeneralizedInputs
-mergeApplicables ( a@Just{}, _, _) b
+mergeApplicables b ( a@Just{}, _, _)
   = ApplicableGeneralizedInputs
-      (coerce $ First a <> (First . canNotifyMaybe $ b) )
+      (coerce $ (First . canNotifyMaybe $ b) <> First a  )
       (deposits b)
       (choices b)
-mergeApplicables ( _, Just a, _) b
+mergeApplicables b ( _, Just a, _)
   = ApplicableGeneralizedInputs
       (canNotifyMaybe b)
-      (nubBy sameIndexedValue $ a : deposits b )
+      (nubBy sameIndexedValue $ deposits b ++ [a]  )
       (choices b)
-mergeApplicables ( _, _, Just a) b
+mergeApplicables b ( _, _, Just a)
   = ApplicableGeneralizedInputs
       (canNotifyMaybe b)
       (deposits b)
-      ((maybeToList $ a `difference` choices b) <> choices b)
-mergeApplicables _ b = b
+      ( choices b ++ (maybeToList $ a `difference` choices b))
+mergeApplicables b _  = b
 
 toApplicable
   :: Environment
