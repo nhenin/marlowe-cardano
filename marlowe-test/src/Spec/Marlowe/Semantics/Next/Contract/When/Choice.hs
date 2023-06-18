@@ -1,32 +1,38 @@
+{-# LANGUAGE ImportQualifiedPost #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-module Spec.Marlowe.Semantics.Next.When.Choice
+module Spec.Marlowe.Semantics.Next.Contract.When.Choice
   ( Choice'(..)
   , hasOnlyChoicesWithNoBounds
   , onlyIndexedChoices
   ) where
 
 import Data.Types.Isomorphic (Injective(..))
-import Language.Marlowe.Core.V1.Semantics.Next (CanChoose(..))
-import Language.Marlowe.Core.V1.Semantics.Next.Indexed
-import Language.Marlowe.Core.V1.Semantics.Next.IsMerkleizedContinuation
+import qualified Language.Marlowe.Core.V1.Semantics.Next.Applicables.CanChoose as Semantics
+import Language.Marlowe.Core.V1.Semantics.Next.Indexed (Indexed(..), getIndexedValue)
+import Language.Marlowe.Core.V1.Semantics.Next.IsMerkleizedContinuation (IsMerkleizedContinuation)
 import Language.Marlowe.Core.V1.Semantics.Types (Action(Choice), Bound, Case, ChoiceId, Contract, Environment, State)
 import Spec.Marlowe.Semantics.Arbitrary ()
-import Spec.Marlowe.Semantics.Next.When (indexedCaseActions)
+import Spec.Marlowe.Semantics.Next.Contract.When (indexedCaseActions)
 
-data Choice' = Choice' {choiceId' :: ChoiceId, bounds' :: [Bound], isMerkleizedContinuation' :: IsMerkleizedContinuation} deriving (Show,Eq,Ord)
+data Choice'
+    = Choice'
+      { choiceId :: ChoiceId
+      , bounds :: [Bound]
+      , isMerkleizedContinuation :: IsMerkleizedContinuation}
+  deriving (Show,Eq,Ord)
 
 
-instance Injective Choice' CanChoose where
-   to (Choice' a b c) = CanChoose a b c
+instance Injective Choice' Semantics.CanChoose where
+   to (Choice' a b c) = Semantics.CanChoose a b c
 
-instance Injective CanChoose Choice'  where
-   to (CanChoose a b c) =  Choice' a b c
+instance Injective Semantics.CanChoose Choice'  where
+   to (Semantics.CanChoose a b c) =  Choice' a b c
 
 
 hasOnlyChoicesWithNoBounds :: Environment -> State -> [Case Contract] -> Bool
 hasOnlyChoicesWithNoBounds e s c
   = let choices = onlyIndexedChoices e s c
-    in (not.null $ choices) && all( null . bounds' . getIndexedValue) choices
+    in (not.null $ choices) && all( null . bounds . getIndexedValue) choices
 
 onlyIndexedChoices :: Environment -> State -> [Case Contract]  -> [Indexed Choice']
 onlyIndexedChoices e s = onlyChoices e s . indexedCaseActions

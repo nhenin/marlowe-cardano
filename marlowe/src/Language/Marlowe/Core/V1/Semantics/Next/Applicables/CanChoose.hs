@@ -17,7 +17,7 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 
-module Language.Marlowe.Core.V1.Semantics.Next.CanChoose
+module Language.Marlowe.Core.V1.Semantics.Next.Applicables.CanChoose
   ( CanChoose(..)
   , compactAdjoinedBounds
   , difference
@@ -39,7 +39,10 @@ import Prelude
 
 
 
-data CanChoose  = CanChoose {choiceId :: ChoiceId, bounds :: [Bound] ,isMerkleizedContinuation :: IsMerkleizedContinuation}
+data CanChoose
+    = CanChoose { choiceId :: ChoiceId
+                , bounds :: [Bound]
+                , isMerkleizedContinuation :: IsMerkleizedContinuation}
   deriving stock (Show,Eq,Ord,Generic)
   deriving anyclass (Pretty)
 

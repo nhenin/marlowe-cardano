@@ -1,7 +1,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 
-module Spec.Marlowe.Semantics.Next.When.Deposit
+module Spec.Marlowe.Semantics.Next.Contract.When.Deposit
   ( EvaluatedDeposit(..)
   , evaluateDeposits
   , hasIdenticalEvaluatedDeposits
@@ -11,17 +11,19 @@ module Spec.Marlowe.Semantics.Next.When.Deposit
 import Data.List (nubBy)
 import Data.Types.Isomorphic (Injective(..), Iso)
 import Language.Marlowe.Core.V1.Semantics (evalValue)
-import Language.Marlowe.Core.V1.Semantics.Next (CanDeposit(..))
-import Language.Marlowe.Core.V1.Semantics.Next.Indexed
-import Language.Marlowe.Core.V1.Semantics.Next.IsMerkleizedContinuation
+import Language.Marlowe.Core.V1.Semantics.Next.Applicables.CanDeposit (CanDeposit(..))
+import Language.Marlowe.Core.V1.Semantics.Next.Indexed (Indexed(..))
+import Language.Marlowe.Core.V1.Semantics.Next.IsMerkleizedContinuation (IsMerkleizedContinuation)
 import Language.Marlowe.Core.V1.Semantics.Types
   (AccountId, Action(Deposit), Case, Contract, Environment, Party, State, Token)
 import Spec.Marlowe.Semantics.Arbitrary ()
-import Spec.Marlowe.Semantics.Next.When (indexedCaseActions)
+import Spec.Marlowe.Semantics.Next.Contract.When (indexedCaseActions)
 
 
 
-data EvaluatedDeposit = EvaluatedDeposit Party AccountId Token Integer IsMerkleizedContinuation deriving (Show,Eq,Ord)
+data EvaluatedDeposit
+    = EvaluatedDeposit Party AccountId Token Integer IsMerkleizedContinuation
+    deriving (Show,Eq,Ord)
 
 instance Injective EvaluatedDeposit CanDeposit where
    to (EvaluatedDeposit a b c d e) = CanDeposit a b c d e

@@ -19,15 +19,17 @@
 module Language.Marlowe.Core.V1.Semantics.Next.Indexed
   ( CaseIndex(..)
   , Indexed(..)
+  , caseIndexed
   , getCaseIndex
   , getIndexedValue
   , sameIndexedValue
   ) where
 
-
 import Data.Aeson (FromJSON, ToJSON)
 import Data.Aeson.Types ()
 
+import Data.Bifunctor (Bifunctor(..))
+import Data.List.Index (indexed)
 import Deriving.Aeson (Generic)
 import Language.Marlowe.Pretty (Pretty(..))
 import Prelude
@@ -52,3 +54,6 @@ getIndexedValue (Indexed _ a) = a
 
 sameIndexedValue :: Eq a => Indexed a -> Indexed a -> Bool
 sameIndexedValue a b = getIndexedValue a == getIndexedValue b
+
+caseIndexed :: [a] -> [(CaseIndex,a)]
+caseIndexed xs = first (CaseIndex . fromIntegral) <$> indexed  xs

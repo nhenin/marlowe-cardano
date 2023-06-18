@@ -3,8 +3,7 @@
 
 {-# OPTIONS_GHC -Wno-orphans #-}
 
-module Main
-  where
+module Main where
 
 import Control.Monad (replicateM)
 import Data.Aeson (Value(Null))
@@ -18,10 +17,13 @@ import qualified Language.Marlowe.Runtime.Web as Web
 import Network.Arbitrary ()
 import Servant.OpenApi
 import Spec.Marlowe.Semantics.Arbitrary ()
+import Spec.Marlowe.Semantics.Next.Arbitrary ()
+
 import Test.Hspec (Spec, describe, hspec)
 import Test.QuickCheck (Arbitrary(..), Gen, elements, genericShrink, listOf, oneof, resize, suchThat)
 import Test.QuickCheck.Instances ()
 import Text.Regex.Posix ((=~))
+
 
 main :: IO ()
 main = hspec do

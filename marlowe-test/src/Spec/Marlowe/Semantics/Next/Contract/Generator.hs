@@ -28,8 +28,8 @@ import Data.List (nub)
 import Spec.Marlowe.Semantics.Next.Common.Tuple (uncurry3)
 import Spec.Marlowe.Semantics.Next.Contract
   (hasValidEnvironement, isEmptyWhenNonTimedOut, isIrreducible, isNotClose, isReducible, isReducibleToClose)
-import Spec.Marlowe.Semantics.Next.When.Deposit
-import Spec.Marlowe.Semantics.Next.When.Notify (areOnlyFalsifiedNotifies, atLeastOneNotifyTrue)
+import Spec.Marlowe.Semantics.Next.Contract.When.Deposit
+import Spec.Marlowe.Semantics.Next.Contract.When.Notify (areOnlyFalsifiedNotifies, atLeastOneNotifyTrue)
 
 
 anyReducibleContract :: Gen (Environment,State,Contract)

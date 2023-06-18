@@ -57,6 +57,7 @@ library
 
   other-modules:
     Language.Marlowe.Runtime.Web.API
+    Language.Marlowe.Runtime.Web.Next.Schema
     Language.Marlowe.Runtime.Web.Orphans
     Language.Marlowe.Runtime.Web.Types
 

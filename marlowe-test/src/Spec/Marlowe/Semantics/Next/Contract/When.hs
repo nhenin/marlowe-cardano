@@ -1,6 +1,6 @@
 
 
-module Spec.Marlowe.Semantics.Next.When
+module Spec.Marlowe.Semantics.Next.Contract.When
   ( When'(..)
   , indexedCaseActions
   , reducibleToAWhen
