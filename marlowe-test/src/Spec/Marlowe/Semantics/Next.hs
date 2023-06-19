@@ -59,56 +59,63 @@ tests = testGroup "Next"
       ]
   , testGroup "Applicability"
       [ testProperty
-          "Notify is not applicable when evaluated falsified"
-            $ forAll' anyOnlyFalsifiedNotifies $ \(environment', state, contract) ->
-                Right Nothing == (notifyMaybe . applicables <$> next environment' state contract)
-      , testProperty
-          "Non timed out empty \"When\" is not applicable"
-            $ forAll' anyEmptyWhenNonTimedOut $ \(environment', state, contract) ->
-                Right emptyApplicables == ( applicables <$> next environment' state contract)
-      , testProperty
           "\"Close\" is not applicable"
             $ forAll' anyCloseOrReducedToAClose $ \(environment', state, contract) ->
                 Right emptyApplicables == (applicables <$> next environment' state contract)
       , testProperty
-          "\"CanDeposit\" is a \"Deposit\" with its quantity evaluated and its \"Case\" index preserved (when no shadowing involved)"
-            $ forAll' anyCaseContractsWithoutIdenticalEvaluatedDeposits $ \(environment', state, caseContracts) -> do
-                let evaluatedDeposits = evaluateDeposits environment' state caseContracts
-                evaluatedDeposits == (to . deposits. mkApplicablesWhen environment' state $ caseContracts)
-      , testProperty
-          "\"Choice\" with empty bounds is not applicables"
-            $ forAll' anyCaseContractsWithEmptyBoundsChoiceOnly $ \(environment', state, caseContracts) -> do
-                null(choices . mkApplicablesWhen environment' state $ caseContracts)
-      , testProperty
-          "\"CanChoose\" is isomorphic to \"Choice\" and its \"Case\" index preserved (when no shadowing involved)"
-            $ forAll' anyCaseContractsWithChoiceOnlyNotShadowed $ \(environment', state, caseContracts) -> do
-                let indexedChoices =  onlyIndexedChoices environment' state caseContracts
-                indexedChoices == (to . choices . mkApplicablesWhen environment' state $ caseContracts)
-      , testGroup "Input Shadowing"
+          "Non timed out empty \"When\" is not applicable"
+            $ forAll' anyEmptyWhenNonTimedOut $ \(environment', state, contract) ->
+                Right emptyApplicables == ( applicables <$> next environment' state contract)
+      , testGroup "Notify"
           [ testProperty
-              "Following Notifies evaluated to True are not applicable (shadowed)"
+              "\"Notify\" is not applicable when evaluated falsified"
+                $ forAll' anyOnlyFalsifiedNotifies $ \(environment', state, contract) ->
+                    Right Nothing == (notifyMaybe . applicables <$> next environment' state contract)
+         , testProperty
+              "Shadowing : Following Notifies evaluated to True are not applicable"
                 $ forAll' anyWithAtLeastOneNotifyTrue $ \(environment', state, contract) -> do
                     let expectedCaseIndex = fromJust . firstNotifyTrueIndex environment' state $ contract
                     (Right . Just $ expectedCaseIndex ) == ( (getCaseIndex <$>). notifyMaybe . applicables <$> next environment' state contract)
+          ]
+      , testGroup "Deposit"
+          [ testProperty
+              "\"CanDeposit\" is a \"Deposit\" with its quantity evaluated and its \"Case\" index preserved (when no shadowing involved)"
+                $ forAll' anyCaseContractsWithoutIdenticalEvaluatedDeposits $ \(environment', state, caseContracts) -> do
+                    let evaluatedDeposits = evaluateDeposits environment' state caseContracts
+                    evaluatedDeposits == (to . deposits. mkApplicablesWhen environment' state $ caseContracts)
+
           , testProperty
-              "Following Identical Evaluated Deposits are not applicable (shadowed)"
+              "Shadowing : Following Identical Evaluated Deposits are not applicable"
                 $ forAll' anyCaseContractsWithIdenticalEvaluatedDeposits $ \(environment', state, caseContracts) -> do
                     let evaluatedDeposits = evaluateDeposits environment' state caseContracts
                         canDeposits = to. deposits. mkApplicablesWhen environment' state $ caseContracts
                     canDeposits == nubBy sameIndexedValue evaluatedDeposits
-          , testProperty
-              "[Indexed CanChoose]'s bounds on the same choiceId don't overlap"
-                $ forAll' anyCaseContractsWithChoiceOnTheSameChoiceIdAndNonEmptyBounds $ \(environment', state, caseContracts) -> do
-                    let indexedChoices =  to . onlyIndexedChoices environment' state $ caseContracts
-                        canchooseList = choices . mkApplicablesWhen environment' state $ caseContracts
-                    overlaps indexedChoices && (not. overlaps $ canchooseList)
-                      || (not. overlaps $ indexedChoices) && (not. overlaps $ canchooseList)
-          ,  testProperty
-              "\"[Indexed CanChoose]\" and [Choice] on the same choiceId have the same merged Bounds "
-                $ withMaxSuccess 50 $ forAll' anyCaseContractsWithChoiceOnTheSameChoiceIdAndNonEmptyBounds $ \(environment', state, caseContracts) -> do
-                    let indexedChoices =  to . onlyIndexedChoices environment' state $ caseContracts
-                        canchooseList = choices . mkApplicablesWhen environment' state $ caseContracts
-                    compactAdjoinedBounds indexedChoices == compactAdjoinedBounds canchooseList
+          ]
+      , testGroup "Choice"
+          [ testProperty
+              "\"Choice\" with empty bounds is not applicables"
+                $ forAll' anyCaseContractsWithEmptyBoundsChoiceOnly $ \(environment', state, caseContracts) -> do
+                    null(choices . mkApplicablesWhen environment' state $ caseContracts)
+          , testGroup "Shadowing : Bounds are not applicable when previously covered by Choices with the same Id"
+            [ testProperty
+                "Applicable [Indexed CanChoose]'s bounds on the same choiceId don't overlap"
+                  $ forAll' anyCaseContractsWithChoiceOnTheSameChoiceIdAndNonEmptyBounds $ \(environment', state, caseContracts) -> do
+                      let indexedChoices =  to . onlyIndexedChoices environment' state $ caseContracts
+                          canchooseList = choices . mkApplicablesWhen environment' state $ caseContracts
+                      overlaps indexedChoices && (not. overlaps $ canchooseList)
+                        || (not. overlaps $ indexedChoices) && (not. overlaps $ canchooseList)
+            , testProperty
+                "\"CanChoose\" is isomorphic to \"Choice\" and its \"Case\" index preserved when no shadowing involved"
+                  $ forAll' anyCaseContractsWithChoiceOnlyNotShadowed $ \(environment', state, caseContracts) -> do
+                      let indexedChoices =  onlyIndexedChoices environment' state caseContracts
+                      indexedChoices == (to . choices . mkApplicablesWhen environment' state $ caseContracts)
+            , testProperty
+                "\"[Indexed CanChoose]\" and [Choice] on the same id have the same merged Bounds "
+                  $ withMaxSuccess 50 $ forAll' anyCaseContractsWithChoiceOnTheSameChoiceIdAndNonEmptyBounds $ \(environment', state, caseContracts) -> do
+                      let indexedChoices =  to . onlyIndexedChoices environment' state $ caseContracts
+                          canchooseList = choices . mkApplicablesWhen environment' state $ caseContracts
+                      compactAdjoinedBounds indexedChoices == compactAdjoinedBounds canchooseList]
+
           ]
       ]
   ]
