@@ -55,18 +55,16 @@ library
     , aeson
     , async
     , async-components
-    , base >=4.9 && <5
+    , base                                                                                                                                          >=4.9 && <5
     , bytestring
     , cardano-api
     , cardano-crypto-wrapper
     , cardano-integration
     , cardano-ledger-byron
-    , co-log >=0.5.0.0 && <0.6.0.0
     , containers
-    , eventuo11y >=0.9 && <0.11
+    , eventuo11y                                                                                                                                    >=0.9 && <0.11
     , eventuo11y-extras
     , exceptions
-    , general-allocate
     , hasql
     , hasql-pool
     , http-client
@@ -76,7 +74,6 @@ library
     , marlowe-protocols
     , marlowe-runtime-web:{marlowe-runtime-web, server}
     , marlowe-runtime:{marlowe-runtime, contract, contract-api, discovery-api, history-api, indexer, proxy, proxy-api, sync, sync-api, tx, tx-api}
-    , mtl >=2.2 && <3
     , network
     , nonempty-containers
     , ouroboros-network
@@ -127,7 +124,7 @@ executable marlowe-integration-example
   main-is:            Main.hs
   build-depends:
     , aeson
-    , base >=4.9 && <5
+    , base                 >=4.9 && <5
     , cardano-api
     , marlowe-cardano
     , marlowe-chain-sync
