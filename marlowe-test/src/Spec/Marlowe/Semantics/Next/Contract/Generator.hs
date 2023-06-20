@@ -15,7 +15,6 @@ module Spec.Marlowe.Semantics.Next.Contract.Generator
   , anyOnlyFalsifiedNotifies
   , anyReducibleContract
   , anyWithAtLeastOneNotifyTrue
-  , anyWithValidEnvironement
   ) where
 
 
@@ -34,22 +33,18 @@ import Spec.Marlowe.Semantics.Next.Contract.When.Notify (areOnlyFalsifiedNotifie
 
 anyReducibleContract :: Gen (Environment,State,Contract)
 anyReducibleContract
-  = anyContract
-      `suchThat` uncurry3 isReducible
-
+  = anyContract `suchThat` uncurry3 isReducible
 
 anyIrreducibleContract :: Gen (Environment,State,Contract)
 anyIrreducibleContract
-  = anyContract
-      `suchThat` uncurry3 isIrreducible
+  = anyContract `suchThat` uncurry3 isIrreducible
 
 
 anyOnlyFalsifiedNotifies :: Gen (Environment,State,Contract)
 anyOnlyFalsifiedNotifies
   = do
+      (env,state) <- arbitrary
       let genOnlyNotifies = When <$> (listOf1 $ Case <$> (Notify <$> arbitrary) <*> arbitrary) <*> arbitrary <*> arbitrary
-      env <- arbitrary
-      state <- arbitrary
       contract <- genOnlyNotifies `suchThat` areOnlyFalsifiedNotifies env state
       return (env,state,contract)
 
@@ -61,16 +56,11 @@ anyCloseOrReducedToAClose :: Gen (Environment,State,Contract)
 anyCloseOrReducedToAClose
   = anyContract `suchThat` uncurry3 isReducibleToClose
 
-anyWithValidEnvironement :: Gen (Environment,State,Contract)
-anyWithValidEnvironement
-  = anyContract `suchThat` uncurry3 hasValidEnvironement
-
 
 anyCaseContractsWithChoiceOnlyNotShadowed :: Gen (Environment,State,[Case Contract])
 anyCaseContractsWithChoiceOnlyNotShadowed
   = do
-    env <- arbitrary
-    state <- arbitrary
+    (env,state) <- arbitrary
     choiceIds <- nub <$> listOf1 arbitrary
     caseContracts <- sequence $ (\choiceId -> pure (Case (Choice choiceId [Bound 1 10])) <*> pure Close) <$> choiceIds
     return (env,state,caseContracts)
@@ -79,8 +69,7 @@ anyCaseContractsWithChoiceOnlyNotShadowed
 anyCaseContractsWithChoiceOnTheSameChoiceIdAndNonEmptyBounds :: Gen (Environment,State,[Case Contract])
 anyCaseContractsWithChoiceOnTheSameChoiceIdAndNonEmptyBounds
   = do
-    env <- arbitrary
-    state <- arbitrary
+    (env,state) <- arbitrary
     caseContracts <- listOf  $ Case <$> (Choice (ChoiceId "same1" "same2") <$> listOf1 arbitrary) <*> pure Close
     return (env,state, caseContracts)
 
@@ -102,10 +91,11 @@ anyCaseContractsWithIdenticalEvaluatedDeposits
 
 anyContract :: Gen (Environment,State,Contract)
 anyContract
-  = arbitrary
+  = arbitrary `suchThat` uncurry3 hasValidEnvironement
+
 
 anyEmptyWhenNonTimedOut :: Gen (Environment,State,Contract)
 anyEmptyWhenNonTimedOut
-  = arbitrary `suchThat` uncurry3 isEmptyWhenNotTimedOut
+  = anyContract `suchThat` uncurry3 isEmptyWhenNotTimedOut
 
 

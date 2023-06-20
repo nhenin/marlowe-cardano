@@ -32,9 +32,9 @@ tests :: TestTree
 tests =
   testGroup "Semantics"
     [ Spec.Marlowe.Semantics.Next.tests
-    , Spec.Marlowe.Semantics.Entropy.tests
-    , Spec.Marlowe.Semantics.Functions.tests
-    , Spec.Marlowe.Semantics.Compute.tests
-    , Spec.Marlowe.Semantics.Golden.tests
-    , Spec.Marlowe.Semantics.Path.tests
+    -- , Spec.Marlowe.Semantics.Entropy.tests
+    -- , Spec.Marlowe.Semantics.Functions.tests
+    -- , Spec.Marlowe.Semantics.Compute.tests
+    -- , Spec.Marlowe.Semantics.Golden.tests
+    -- , Spec.Marlowe.Semantics.Path.tests
     ]

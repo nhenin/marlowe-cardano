@@ -36,6 +36,7 @@ module Spec.Marlowe.Semantics.Arbitrary
   , arbitraryGoldenTransaction
   , arbitraryNonnegativeInteger
   , arbitraryPositiveInteger
+  , arbitraryTimeInterval
   , arbitraryTimeIntervalAround
   , arbitraryValidInput
   , arbitraryValidInputs

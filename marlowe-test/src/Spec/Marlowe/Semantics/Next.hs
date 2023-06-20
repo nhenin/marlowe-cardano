@@ -36,7 +36,7 @@ import Spec.Marlowe.Semantics.Next.Contract.Generator
 import Spec.Marlowe.Semantics.Next.Contract.When.Choice (onlyIndexedChoices)
 import Spec.Marlowe.Semantics.Next.Contract.When.Deposit (evaluateDeposits)
 import Spec.Marlowe.Semantics.Next.Contract.When.Notify (firstNotifyTrueIndex)
-import Test.QuickCheck (withMaxSuccess)
+import Test.QuickCheck (forAll, withMaxSuccess)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.QuickCheck (testProperty)
 
@@ -60,7 +60,7 @@ tests = testGroup "Next"
                 Right emptyApplicables == (applicables <$> next environment' state contract)
       , testProperty
           "Non timed out empty \"When\" is not applicable"
-            $ forAll' anyEmptyWhenNonTimedOut $ \(environment', state, contract) ->
+            $ forAll anyEmptyWhenNonTimedOut $ \(environment', state, contract) ->
                 Right emptyApplicables == ( applicables <$> next environment' state contract)
       , testGroup "Notify"
           [ testProperty

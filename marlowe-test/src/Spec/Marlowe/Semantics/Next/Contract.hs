@@ -10,9 +10,8 @@ module Spec.Marlowe.Semantics.Next.Contract
   ) where
 
 
-import Language.Marlowe.Core.V1.Semantics
-  (ReduceResult(ContractQuiescent, RRAmbiguousTimeIntervalError), reduceContractUntilQuiescent)
-import Language.Marlowe.Core.V1.Semantics.Types (Contract(Close), Environment(..), State, Timeout)
+import Language.Marlowe.Core.V1.Semantics (ReduceResult(ContractQuiescent), fixInterval, reduceContractUntilQuiescent)
+import Language.Marlowe.Core.V1.Semantics.Types (Contract(Close), Environment(..), IntervalResult(..), State, Timeout)
 import Spec.Marlowe.Semantics.Arbitrary ()
 import Spec.Marlowe.Semantics.Next.Contract.When (When'(..), reducibleToAWhen)
 
@@ -35,10 +34,13 @@ isReducible environment' state contract
 
 
 hasValidEnvironement :: Environment -> State -> Contract -> Bool
-hasValidEnvironement environment' state contract
-  = case reduceContractUntilQuiescent environment' state contract of
-      RRAmbiguousTimeIntervalError -> False
-      _otherwise -> True
+hasValidEnvironement environment state contract
+  = case fixInterval (timeInterval environment) state of
+      IntervalTrimmed e s ->
+        case reduceContractUntilQuiescent e s contract of
+          ContractQuiescent {} -> True
+          _otherwise ->  False
+      IntervalError _ -> False
 
 isReducibleToClose :: Environment -> State -> Contract -> Bool
 isReducibleToClose environment' state contract
