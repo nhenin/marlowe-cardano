@@ -67,9 +67,6 @@ module Language.Marlowe.Core.V1.Semantics.Types
   , TokenName(..)
   , Value(..)
   , ValueId(..)
-  , environment
-  , isNotTimedOut
-  , isTimedOut
     -- * Error Types
   , IntervalError(..)
     -- * Utility Functions
@@ -315,16 +312,6 @@ data State = State { accounts    :: Accounts
 newtype Environment = Environment { timeInterval :: TimeInterval }
   deriving stock (Haskell.Show,Haskell.Eq,Haskell.Ord)
 
-environment :: UTCTime -> UTCTime -> Environment
-environment start end = Environment (utcTimeToPOSIXTime start, utcTimeToPOSIXTime end)
-
-isTimedOut :: POSIXTime -> Environment -> Bool
-isTimedOut timeout Environment {timeInterval = (start,_)} | timeout  <= start = True
-isTimedOut _ _ = False
-
-isNotTimedOut :: POSIXTime -> Environment -> Bool
-isNotTimedOut timeout = not . isTimedOut timeout
-
 
 instance FromJSON Environment where
   parseJSON = withObject "Environment"
@@ -333,8 +320,6 @@ instance FromJSON Environment where
 instance ToJSON Environment where
   toJSON Environment{..} = object
     [ "timeInterval" .= posixIntervalToJSON timeInterval]
-
-
 
 -- | Input for a Marlowe contract. Correspond to expected 'Action's.
 data InputContent = IDeposit AccountId Party Token Integer
